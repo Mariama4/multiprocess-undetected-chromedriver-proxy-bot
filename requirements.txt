@@ -1,0 +1,4 @@
+Faker==22.2.0
+loguru==0.7.2
+undetected-chromedriver==3.5.4
+
