@@ -10,3 +10,4 @@ fix in undetected - patcher.py ->
 import secrets prefix = f"undetected_{secrets.token_hex(8)}"
 
 Since the browser starts in --headless mode, the bot takes screenshots (in '/screenshots' ) confirming its actions
+You can paste your code into worker.py file
