@@ -92,6 +92,7 @@ def main():
         logger.warning(f'Запущено 0 воркеров.')
 
     logger.warning(f'Завершение работы...')
+    exit(0)
 
 
 if __name__ == '__main__':
