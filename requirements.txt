@@ -1,4 +1,5 @@
-Faker==22.2.0
 loguru==0.7.2
 undetected-chromedriver==3.5.4
+psutil==5.9.7
+chromedriver-autoinstaller==0.6.3
 
