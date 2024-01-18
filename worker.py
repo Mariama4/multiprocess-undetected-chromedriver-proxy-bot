@@ -1,120 +1,122 @@
-from os import path
-from datetime import datetime
-from random import random, choice
-from shutil import rmtree
-from string import ascii_uppercase, digits
+from random import choice
 from time import sleep
-from multiprocessing import current_process
+from multiprocessing import Process, Queue
 import undetected_chromedriver as uc
-from extension import proxies
-import signal
-import functools
-from urllib.parse import urlparse
+import utils
 from logger import logger
-from utils import utils
 
 
-def delete_temp_folder(temp_folder, current_process_name):
-    if path.isdir(f'extension_proxies/{temp_folder}'):
-        logger.info(
-            f'{current_process_name} - Удаление временной папки с прокси для сайта "{temp_folder}"')
-        try:
-            rmtree(f'extension_proxies/{temp_folder}')
-        except Exception as e:
-            logger.exception(e)
-            logger.error(
-                f'{current_process_name} - Ошибка при удалении папки - extension_proxies/{temp_folder}')
+class Worker(Process):
+    """
+    Класс, представляющий рабочий процесс.
 
+    Аргументы:
+        name (str): Имя рабочего процесса.
+        site_list (list): Список сайтов для посещения.
+        proxy_queue (Queue): Очередь прокси.
+        lock (Lock): Объект блокировки.
+        daemon (bool, optional): Флаг, указывающий, является ли процесс демоном. По умолчанию True.
 
-# TODO: need better cleanup
-def handle_sigterm(driver, current_process_name, signum, frame):
-    logger.warning(f'{current_process_name} - Остановка воркера / {signum} / {frame}')
-    driver.quit()
-    exit(0)
+    """
 
+    def __init__(self,
+                 name: str,
+                 site_list: list,
+                 proxy_queue: Queue,
+                 driver_path: str,
+                 *,
+                 daemon: bool = True) -> None:
+        self.site_list = site_list
+        self.proxy_queue = proxy_queue
+        self.driver = None
+        self.driver_path = driver_path
+        self.driver_version = utils.get_chromedriver_version()
 
-def get_chrome_options(proxy=None, random_string=''):
-    chrome_options = uc.ChromeOptions()
+        super().__init__(name=name, daemon=daemon)
+        self.log = logger.bind(classname=self.name)
+        self.log.success('Инициализирован')
 
-    if proxy is not None:
-        proxy_folder = proxies(proxy["user"], proxy["password"], proxy["ip"], proxy["port"], random_string)
-        chrome_options.add_argument(f"--load-extension={proxy_folder}")
-        chrome_options.add_argument(
-            f'--proxy-server={proxy["protocol"]}://{proxy["user"]}:{proxy["password"]}@{proxy["ip"]}:{proxy["port"]}')
+    def run(self):
+        """
+        Запускает выполнение рабочего процесса.
 
-    # chrome_options.add_argument('--auto-open-devtools-for-tabs')
-    chrome_options.add_argument('--disable-infobars')
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--window-size=800,600')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-    chrome_options.add_argument('--no-first-run --no-service-autorun --password-store=basic')
-
-    return chrome_options
-
-
-def run(site_list, proxy_queue, lock):
-    while True:
-        with lock:
-            if proxy_queue.empty():
-                lock.release()
-                sleep(random())
-                lock.acquire()
+        """
+        while True:
+            if self.proxy_queue.empty():
+                sleep(5)
                 continue
-            site = choice(site_list)
-            proxy = proxy_queue.get()
+            proxy_string = self.proxy_queue.get()
+            site_url = choice(self.site_list)
 
-        current_process_name = current_process().name
-        logger.info(f'{current_process_name} - Воркер запущен')
-        logger.info(f'{current_process_name} - Сайт и прокси: {site} / {proxy}')
+            self.log = logger.bind(classname=self.name,
+                                   url=site_url)
 
-        proxy_object = utils.get_proxy_object(proxy)
-        random_string = ''.join(choice(ascii_uppercase + digits) for _ in range(7))
-
-        logger.info(f'{current_process_name} - {site} / {proxy} - Временная папка с прокси для сайта "{random_string}"')
-        chrome_options = get_chrome_options(proxy_object, random_string)
-
-        logger.info(f'{current_process_name} - {site} / {proxy} - Запуск Chrome')
-        driver = uc.Chrome(
-            # version_main='120.0.6099.217',
-            options=chrome_options)
-        try:
-            # Обработчик завершения работы
-            sigterm_handler = functools.partial(handle_sigterm, driver, current_process_name)
-            signal.signal(signal.SIGTERM, sigterm_handler)
-
-            logger.info(f'{current_process_name} - {site} / {proxy} - Открытие сайта')
-            driver.get(site)
-
-            # ВАШ КОД
-
-            # Создание скриншота
-            url_netloc = urlparse(site).netloc
-            screenshot_file_name = f'{current_process_name}_{url_netloc}_{datetime.now().microsecond}'
-            logger.info(
-                f'{current_process_name} - Создание скриншота, ' +
-                f'имя файла - "{screenshot_file_name}.png"')
+            proxy_info = utils.get_proxy_object(proxy_string=proxy_string)
+            proxy_folder_name = utils.get_proxy_extension_folder(proxy_info=proxy_info)
             try:
-                screenshot_abs_path = path.abspath('screenshots')
-                screenshot_path = path.join(screenshot_abs_path, f'{screenshot_file_name}.png')
-                driver.save_screenshot(screenshot_path)
-                logger.info(
-                    f'{current_process_name} - Путь к файлу - {screenshot_path}')
+                chromedriver_options = utils.get_chromedriver_options(proxy_folder_name=proxy_folder_name)
+                self.driver = uc.Chrome(
+                    version_main=self.driver_version,
+                    options=chromedriver_options,
+                    user_data_dir=utils.get_random_user_data_dir(),
+                    driver_executable_path=self.driver_path,
+                    headless=True,
+                    log_level=3
+                )
+                self.driver.set_window_size(400, 580)
+                try:
+                    self.log.info('Ожидание загрузки сайта...')
+                    self.driver.get(site_url)
+
+                    # Ваш код
+
+                    script = utils.get_script()
+                    self.driver.execute_script(script)
+                    sleep(10)
+
+                    # Ваш код
+
+                    try:
+                        screenshot_path = utils.get_screenshot_path(site_url=site_url)
+                        self.driver.save_screenshot(screenshot_path)
+                        self.log.success(f'Скриншот сохранен - {screenshot_path}')
+                    except:
+                        self.log.error('Ошибка создания скриншота')
+                except:
+                    self.log.error('Неизвестная ошибка')
+                finally:
+                    self.log.info('Закрытие')
+                    self.driver.quit()
             except Exception as e:
-                logger.exception(e)
-                logger.error(
-                    f'{current_process_name} - Ошибка при создании скриншота')
+                self.log.exception(e)
+                self.log.error('Неизвестная ошибка')
+            finally:
+                utils.delete_proxy_extension_folder(proxy_folder_name)
+                self.proxy_queue.put(proxy_string)
 
-            logger.success(f"{current_process_name} - {site} / {proxy} - Задача выполнена")
-        except Exception as e:
-            logger.exception(e)
-            logger.error(f'{current_process_name} - {site} / {proxy} - ' +
-                         f'Неизвестная ошибка')
-        finally:
-            logger.info(f'{current_process_name} - {site} / {proxy} - Закрытие Chrome')
-            driver.quit()
-            # Удаление временной папки
-            delete_temp_folder(random_string, current_process_name)
+    def start(self) -> None:
+        """
+        Запускает выполнение рабочего процесса.
 
-            with lock:
-                proxy_queue.put(proxy)
+        """
+        self.log.success('Запущен')
+        super().start()
+
+    def join(self, timeout=None):
+        """
+        Блокирует выполнение программы, пока рабочий процесс не завершится или не истечет таймаут.
+
+        Аргументы:
+            timeout (float or None, optional): Таймаут ожидания завершения процесса. По умолчанию None.
+
+        """
+        self.log.success('Остановка (join)')
+        super().join(timeout=timeout)
+
+    def terminate(self):
+        """
+        Прекращает выполнение рабочего процесса.
+
+        """
+        self.log.success('Остановка (terminate)')
+        super().terminate()
