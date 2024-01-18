@@ -1,16 +1,8 @@
-# multiprocess-undetected-chromedriver-proxy-bot
-Multiprocessor bot for anonymously launching a web page through a proxy
+install python 3.11
 
-Python version = 3.11 
+install.bat for windows or install.sh for others
+start.bat for windows or start.sh for others
 
-pip install undetected-chromedriver, loguru, Faker 
-
-!important!
-fix in undetected - patcher.py ->
-import secrets prefix = f"undetected_{secrets.token_hex(8)}"
-
-Since the browser starts in --headless mode, the bot takes screenshots (in '/screenshots' ) confirming its actions
-You can paste your code into worker.py file
-
-TODO:
-    - cleanup chromedrivers
+Windows: ok
+Mac (arm): error
+Linux: ???
