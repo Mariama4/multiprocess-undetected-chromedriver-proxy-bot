@@ -1,4 +1,3 @@
-from random import choice
 from time import sleep
 from multiprocessing import Process, Queue
 import undetected_chromedriver as uc
@@ -46,7 +45,7 @@ class Worker(Process):
                 sleep(5)
                 continue
             proxy_string = self.proxy_queue.get()
-            site_url = choice(self.site_list)
+            site_url = next(self.site_list)
 
             self.log = logger.bind(classname=self.name,
                                    url=site_url)

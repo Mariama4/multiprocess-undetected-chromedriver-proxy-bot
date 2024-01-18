@@ -7,6 +7,7 @@ import utils
 from config import data_folder, sites_filename, proxies_filename
 from worker import Worker
 from logger import logger
+from itertools import cycle
 
 
 def main():
@@ -54,6 +55,8 @@ def main():
 
     for site in sites:
         site_list.append(site)
+
+    site_list = cycle(site_list)
 
     for proxy in proxies:
         proxy_queue.put(proxy)
