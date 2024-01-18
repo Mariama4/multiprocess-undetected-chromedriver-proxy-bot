@@ -20,7 +20,7 @@ class Worker(Process):
 
     def __init__(self,
                  name: str,
-                 site_list: list,
+                 site_list: iter,
                  proxy_queue: Queue,
                  driver_path: str,
                  *,
