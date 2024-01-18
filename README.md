@@ -1,7 +1,13 @@
 install python 3.11
 
-pip uninstall undetected-chromedriver
-pip install git+https://github.com/Mariama4/undetected-chromedriver@master
-pip install loguru, psutil, chromedriver-autoinstaller, fake-useragent
+install.bat for windows or install.sh for others
 
-now works on win
+start.bat for windows or start.sh for others
+
+Windows: ok
+
+Mac (arm): error
+
+Linux: ???
+
+maybe add fake user-agent
