@@ -13,6 +13,9 @@ from os import path
 from config import proxies_folder, screenshots_folder, user_data_dir, drivers_dir
 from logger import logger
 import chromedriver_autoinstaller
+from fake_useragent import UserAgent
+
+ua = UserAgent()
 
 
 def get_random_user_data_dir() -> str:
@@ -250,6 +253,7 @@ def get_chromedriver_options(proxy_folder_name: str) -> ChromeOptions:
     chromedriver_options.add_argument("--disable-dev-shm-usage")
     chromedriver_options.add_argument("--log-level=3")
     chromedriver_options.add_argument("--mute-audio")
+    chromedriver_options.add_argument(f"--user-agent={ua.random}")
 
     return chromedriver_options
 
