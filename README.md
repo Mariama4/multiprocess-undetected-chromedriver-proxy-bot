@@ -9,5 +9,3 @@ Windows: ok
 Mac (arm): error
 
 Linux: ???
-
-maybe add fake user-agent
