@@ -26,6 +26,7 @@ def get_random_user_data_dir() -> str:
     """
     random_string = ''.join(choice(ascii_uppercase + digits) for _ in range(7))
     user_data_folder_path = os.path.abspath(f'{user_data_dir}/{random_string}')
+
     return user_data_folder_path
 
 
